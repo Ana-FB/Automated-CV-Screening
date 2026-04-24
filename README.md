@@ -1,4 +1,4 @@
-# 🤖 CV Screening — Automático
+# 🤖 Automated CV Screening Workflow
 
 Pipeline de screening de CVs construido en **n8n** que procesa postulaciones desde Airtable, analiza el CV con **Claude (Anthropic)**, notifica al recruiter por **Slack** y marca el registro como procesado automáticamente.
 
