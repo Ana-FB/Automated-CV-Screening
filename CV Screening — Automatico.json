@@ -1,0 +1,862 @@
+{
+  "name": "CV Screening — Automatico",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Disparador Cada Minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appeTqWpSapnTyxFO",
+          "mode": "list",
+          "cachedResultName": "ATS Tracking",
+          "cachedResultUrl": "https://airtable.com/appeTqWpSapnTyxFO"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblJwDLEcK3y8VZVe",
+          "mode": "list",
+          "cachedResultName": "Applicants",
+          "cachedResultUrl": "https://airtable.com/appeTqWpSapnTyxFO/tblJwDLEcK3y8VZVe"
+        },
+        "options": {}
+      },
+      "id": "node-leer",
+      "name": "Leer Postulaciones",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        320
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "mmj8WvnkSbsanCfc",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nconst sinProcesar = rows.find(row => {\n  const p = row.json.Procesado;\n  return !p || p === false || p === null || p === undefined;\n});\nif (!sinProcesar) return [];\nreturn [{ json: {\n  ...sinProcesar.json,\n  _airtable_id: sinProcesar.json.id\n} }];"
+      },
+      "id": "node-nueva-post",
+      "name": "Nueva Postulacion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "value": "appeTqWpSapnTyxFO",
+          "mode": "list",
+          "cachedResultName": "ATS Tracking",
+          "cachedResultUrl": "https://airtable.com/appeTqWpSapnTyxFO"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbl8XOy6Gpu6W9DJc",
+          "mode": "list",
+          "cachedResultName": "Jobs",
+          "cachedResultUrl": "https://airtable.com/appeTqWpSapnTyxFO/tbl8XOy6Gpu6W9DJc"
+        },
+        "id": "={{ $json.Jobs[0] }}",
+        "options": {}
+      },
+      "id": "node-buscar-vacante",
+      "name": "Obtener Vacante",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [
+        592,
+        320
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "mmj8WvnkSbsanCfc",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.Status }}",
+              "rightValue": "Open",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-vacante-activa",
+      "name": "Vacante Activa?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        880,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ (() => { const cv = $('Separar Jobs').item.json['CV']; return Array.isArray(cv) ? (cv[0]?.url || '') : (cv || '').toString(); })() }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "node-descargar-cv",
+      "name": "Descargar CV",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        896,
+        160
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "node-extraer-texto",
+      "name": "Extraer Texto CV",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        224
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const trigger = $('Separar Jobs').item.json || {};\nconst vacante = $('Obtener Vacante').item.json || {};\nconst cv_text = $json.text || '';\n\nconst nombre = trigger['Nombre completo'] || '';\nconst jobPostulado = Array.isArray(trigger['Job (from Jobs)']) ? trigger['Job (from Jobs)'][0] : (trigger['Job (from Jobs)'] || '');\nconst cvLink = Array.isArray(trigger['CV']) ? (trigger['CV'][0]?.url || '') : (trigger['CV'] || '').toString();\n\nconst systemPrompt = `SISTEMA DE SCREENING AUTOMATICO DE CANDIDATOS\n\nINFORMACION DEL CANDIDATO:\n- Nombre: ${nombre}\n- Email: ${trigger.Email || ''}\n- LinkedIn: ${trigger.LinkedIn || 'No informado'}\n- Puesto solicitado: ${jobPostulado}\n- Skills principales: ${trigger['Skills principales'] || ''}\n- Anios de experiencia declarados: ${trigger['Años de experiencia'] || ''}\n- Seniority declarado: ${trigger.Seniority || ''}\n- Ciudad: ${trigger.Ciudad || ''}, ${trigger.País || ''}\n- Link del CV: ${cvLink}\n\nCONTENIDO DEL CV:\n${cv_text}\n\nCRITERIOS DE LA VACANTE:\n- Job ID: ${vacante.Job_ID || ''}\n- Puesto: ${vacante.Job || ''}\n- Departamento: ${vacante.Department || ''}\n- Descripcion: ${vacante.Description || ''}\n- Required Skills: ${vacante.Required_Skills || ''}\n- Nice to Have: ${vacante.Nice_to_Have || ''}\n- Seniority: ${vacante.Seniority || ''}\n- Experiencia minima: ${vacante.Min_Years_Experience || 0} anios\n- Ubicacion: ${vacante.Location || ''}\n- Tipo: ${vacante.Employment_Type || ''}\n\nINSTRUCCIONES:\n1. Extrae del CV: anios de experiencia, skills, educacion, ubicacion\n2. Compara contra los criterios de la vacante\n3. Valida primero Required_Skills (no negociables)\n4. Evalua Nice_to_Have como valor agregado\n5. Detecta red flags: gaps >3 meses, cambios <6 meses, CV vago\n6. Asigna puntuacion 0-100 y status final\n\nESCALA:\n- 85-100: CUMPLE (todas las required skills + experiencia OK)\n- 70-84: CUMPLE (required skills OK, falta algo de nice to have)\n- 50-69: REVISAR (cumple parcialmente, tiene potencial)\n- 0-49: NO CUMPLE (falta experiencia o mas de 1 required skill)\n\nRESPONDE SOLO JSON VALIDO SIN MARKDOWN:\n{\n  \"candidato\": \"\",\n  \"email\": \"\",\n  \"linkedin\": \"\",\n  \"puesto_solicitado\": \"\",\n  \"job_id\": \"\",\n  \"cv_link\": \"\",\n  \"puntuacion_total\": 0,\n  \"status\": \"CUMPLE|REVISAR|NO CUMPLE\",\n  \"experiencia\": {\"anos_requeridos\": 0, \"anos_encontrados\": 0, \"seniority_requerido\": \"\", \"seniority_encontrado\": \"\", \"rubro_relevante\": true, \"detalle\": \"\"},\n  \"required_skills\": {\"total_requeridas\": 0, \"encontradas\": [], \"faltantes\": [], \"porcentaje_match\": 0},\n  \"nice_to_have\": {\"encontradas\": [], \"faltantes\": []},\n  \"ubicacion\": {\"requerida\": \"\", \"candidato\": \"\", \"cumple\": true},\n  \"fortalezas\": [],\n  \"debilidades\": [],\n  \"red_flags\": [],\n  \"resumen_ejecutivo\": \"\",\n  \"motivo_status\": \"\",\n  \"proximo_paso\": \"\"\n}`;\n\nreturn [{\n  json: {\n    requestBody: {\n      model: 'claude-opus-4-5',\n      max_tokens: 2048,\n      system: systemPrompt,\n      messages: [{ role: 'user', content: 'Analiza el CV y devuelve el JSON del analisis.' }]\n    },\n    recruiter: (() => { const r = vacante.Recruiter; if (!r) return ''; if (Array.isArray(r)) return r[0]?.name || r[0]?.email || ''; if (typeof r === 'object') return r.name || r.email || ''; return r; })(),\n    slack_channel: vacante.Slack_Channel || '',\n    job_id: vacante.Job_ID || '',\n    job: vacante.Job || '',\n    airtable_record_id: trigger._airtable_id || '',\n    cv_link: cvLink\n  }\n}];"
+      },
+      "id": "node-preparar-prompt",
+      "name": "Preparar Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "id": "node-claude",
+      "name": "Claude API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1568,
+        224
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "tT3qVwp26cc3LPNN",
+          "name": "Custom Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const promptNode = $('Preparar Prompt').item.json;\nlet parsed;\ntry {\n  const responseText = $json.content[0].text;\n  const cleanJson = responseText.replace(/```json|```/g, '').trim();\n  parsed = JSON.parse(cleanJson);\n} catch (e) {\n  throw new Error(`Claude no devolvio JSON valido: ${e.message}`);\n}\nreturn [{\n  json: {\n    ...parsed,\n    recruiter: promptNode.recruiter,\n    slack_channel: promptNode.slack_channel,\n    airtable_record_id: promptNode.airtable_record_id\n  }\n}];"
+      },
+      "id": "node-parsear",
+      "name": "Parsear Respuesta Claude",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $('Parsear Respuesta Claude').item.json;\nconst airtableLink = `https://airtable.com/appeTqWpSapnTyxFO/tblJwDLEcK3y8VZVe/${c.airtable_record_id}`;\n\nconst statusEmoji = c.status === 'CUMPLE' ? '🟢' : c.status === 'REVISAR' ? '🟡' : '🔴';\n\nconst text = [\n  `${statusEmoji} *NUEVO CANDIDATO — ${c.status}*`,\n  '',\n  `*Nombre:* ${c.candidato}`,\n  `*Email:* ${c.email}`,\n  `*Puesto:* ${c.puesto_solicitado}`,\n  `*Puntuacion:* ${c.puntuacion_total}/100`,\n  `*LinkedIn:* ${c.linkedin || 'No informado'}`,\n  '',\n  `*Required Skills — ${c.required_skills.porcentaje_match}% match*`,\n  `✅ OK: ${c.required_skills.encontradas.join(', ') || 'Ninguna'}`,\n  `❌ Faltantes: ${c.required_skills.faltantes.length > 0 ? c.required_skills.faltantes.join(', ') : 'Ninguna'}`,\n  '',\n  `*Nice to Have:* ${c.nice_to_have?.encontradas?.join(', ') || 'Ninguna'}`,\n  `*Experiencia:* ${c.experiencia?.anos_encontrados || 0} años (req. ${c.experiencia?.anos_requeridos || 0}) — ${c.experiencia?.seniority_encontrado || ''}`,\n  '',\n  `*Resumen:* ${c.resumen_ejecutivo}`,\n  `*Motivo:* ${c.motivo_status}`,\n  '',\n  `*CV:* <${c.cv_link}|Ver CV>`,\n  `*Recruiter:* ${c.recruiter}`,\n  '',\n  `<${airtableLink}|📋 Ver perfil completo en Airtable>`\n].join('\\n');\n\nreturn [{ json: {\n  text,\n  slack_channel: c.slack_channel,\n  airtable_record_id: c.airtable_record_id\n} }];"
+      },
+      "id": "node-preparar-msg",
+      "name": "Preparar Mensaje Slack",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1968,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $json.slack_channel }}"
+        },
+        "text": "={{ $json.text }}",
+        "otherOptions": {}
+      },
+      "id": "node-slack-send",
+      "name": "Enviar Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        2192,
+        224
+      ],
+      "webhookId": "8c1bd218-e227-4631-9e1c-b8534b7c47bf",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "IFnx0pVP7uI4cg6F",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://api.airtable.com/v0/appeTqWpSapnTyxFO/tblJwDLEcK3y8VZVe/' + $('Preparar Mensaje Slack').item.json.airtable_record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableTokenApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"fields\": {\"Procesado\": true}}",
+        "options": {}
+      },
+      "id": "node-marcar",
+      "name": "Marcar Como Procesado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2416,
+        224
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "mmj8WvnkSbsanCfc",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1152,
+        512
+      ],
+      "id": "5bdf3053-3c2b-40c0-8b78-718c908a8274",
+      "name": "Enviar Email Vacante Cerrada",
+      "webhookId": "afe306a9-8f81-4660-98be-5bd3f5b4077c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "pb76R4Yx3jEbZ8dX",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $('Separar Jobs').item.json;\nconst nombre = p['Nombre completo'] || 'Candidato';\nconst puesto = Array.isArray(p['Job (from Jobs)'])\n  ? p['Job (from Jobs)'][0]\n  : (p['Job (from Jobs)'] || 'la posición solicitada');\n\nconst html = `<!DOCTYPE html>\n<html lang=\"es\">\n<head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"></head>\n<body style=\"margin:0;padding:0;background-color:#f4f6f9;font-family:Arial,Helvetica,sans-serif;\">\n  <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color:#f4f6f9;padding:40px 0;\">\n    <tr><td align=\"center\">\n      <table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08);\">\n        <tr>\n          <td style=\"background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);padding:40px 48px;text-align:center;\">\n            <h1 style=\"color:#ffffff;margin:0;font-size:26px;font-weight:700;\">Gracias por tu postulación</h1>\n          </td>\n        </tr>\n        <tr>\n          <td style=\"padding:48px;\">\n            <p style=\"color:#1a1a2e;font-size:18px;font-weight:600;margin:0 0 16px 0;\">Hola, ${nombre} 👋</p>\n            <p style=\"color:#555;font-size:15px;line-height:1.7;margin:0 0 24px 0;\">\n              Muchas gracias por tomarte el tiempo de postularte a la posición de\n              <strong style=\"color:#1a1a2e;\">${puesto}</strong>.\n              Valoramos tu interés en formar parte de nuestro equipo.\n            </p>\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-bottom:24px;\">\n              <tr>\n                <td style=\"background-color:#fff8f0;border-left:4px solid #f59e0b;border-radius:0 8px 8px 0;padding:20px 24px;\">\n                  <p style=\"color:#92400e;font-size:14px;font-weight:700;margin:0 0 6px 0;\">⚠️ Posición temporalmente no disponible</p>\n                  <p style=\"color:#78350f;font-size:14px;line-height:1.6;margin:0;\">\n                    En este momento, la posición de <strong>${puesto}</strong> no se encuentra activa en nuestro proceso de selección.\n                  </p>\n                </td>\n              </tr>\n            </table>\n            <p style=\"color:#555;font-size:15px;line-height:1.7;margin:0 0 16px 0;\">\n              Tu perfil ha quedado registrado en nuestra base de candidatos.\n              Si en el futuro esta posición se reactiva o surge una oportunidad\n              que se ajuste a tu perfil, nos pondremos en contacto contigo.\n            </p>\n            <p style=\"color:#555;font-size:15px;line-height:1.7;margin:0 0 32px 0;\">\n              Te invitamos a mantenerte atento a nuestras próximas búsquedas.\n            </p>\n            <hr style=\"border:none;border-top:1px solid #eee;margin:0 0 32px 0;\">\n            <p style=\"color:#888;font-size:14px;line-height:1.6;margin:0;\">\n              Muchas gracias nuevamente por tu confianza y tiempo.<br><br>\n              Saludos cordiales,<br>\n              <strong style=\"color:#1a1a2e;\">Equipo de Recursos Humanos</strong>\n            </p>\n          </td>\n        </tr>\n        <tr>\n          <td style=\"background-color:#f9fafb;padding:24px 48px;text-align:center;border-top:1px solid #eee;\">\n            <p style=\"color:#aaa;font-size:12px;margin:0;\">Este es un mensaje automático. Por favor no respondas a este correo.</p>\n          </td>\n        </tr>\n      </table>\n    </td></tr>\n  </table>\n</body>\n</html>`;\n\nreturn [{ json: {\n  to: p.Email || '',\n  subject: `Tu postulación a ${puesto} — Posición no disponible`,\n  html,\n  airtable_record_id: p._airtable_id || ''\n} }];"
+      },
+      "id": "node-prep-email-inactiva",
+      "name": "Preparar Email Vacante Cerrada",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://api.airtable.com/v0/appeTqWpSapnTyxFO/tblJwDLEcK3y8VZVe/' + $('Preparar Email Vacante Cerrada').item.json.airtable_record_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "airtableTokenApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"fields\": {\"Procesado\": true}}",
+        "options": {}
+      },
+      "id": "node-marcar-inactiva",
+      "name": "Marcar Procesado - Inactiva",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1392,
+        512
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "mmj8WvnkSbsanCfc",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const candidato = $input.first().json;\nconst jobs = Array.isArray(candidato.Jobs) \n  ? candidato.Jobs \n  : (candidato.Jobs ? [candidato.Jobs] : []);\nconst jobNames = Array.isArray(candidato['Job (from Jobs)']) \n  ? candidato['Job (from Jobs)'] \n  : (candidato['Job (from Jobs)'] ? [candidato['Job (from Jobs)']] : []);\n\nif (jobs.length === 0) return [];\n\nreturn jobs.map((jobId, index) => ({\n  json: {\n    ...candidato,\n    Jobs: [jobId],\n    'Job (from Jobs)': jobNames[index] !== undefined \n      ? [jobNames[index]] \n      : [jobNames[0] || '']\n  }\n}));"
+      },
+      "id": "node-separar-jobs",
+      "name": "Separar Jobs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🤖 CV Screening — Automatico\n\nProcesa postulaciones de Airtable **cada minuto**. Analiza el CV con Claude, notifica al recruiter por Slack y marca el registro como procesado.\n\n**Flujo principal:** Trigger → Leer → Filtrar → Separar Jobs → Validar Vacante → [ Activa: analizar CV + Slack ] / [ Cerrada: email al candidato ]",
+        "height": 150,
+        "width": 3000,
+        "color": 5
+      },
+      "id": "sticky-header",
+      "name": "Header",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -368,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "content": "⏱️ **TRIGGER**\nDispara el workflow automáticamente cada 1 minuto.",
+        "height": 120,
+        "width": 220,
+        "color": 7
+      },
+      "id": "sticky-trigger",
+      "name": "Sticky Trigger",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -368,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "content": "📋 **LEER POSTULACIONES**\nTrae todos los registros de la tabla **Applicants** en Airtable.",
+        "height": 120,
+        "width": 220,
+        "color": 7
+      },
+      "id": "sticky-leer",
+      "name": "Sticky Leer",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "content": "🔍 **FILTRAR SIN PROCESAR**\nBusca la primera postulación con `Procesado = false`. Si todas están procesadas, detiene el workflow.",
+        "height": 140,
+        "width": 220,
+        "color": 7
+      },
+      "id": "sticky-nueva",
+      "name": "Sticky Nueva",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        144,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "content": "✂️ **SEPARAR POR PUESTO**\nSi el candidato aplicó a múltiples vacantes, crea un item por cada job para procesarlos individualmente.",
+        "height": 140,
+        "width": 220,
+        "color": 7
+      },
+      "id": "sticky-separar",
+      "name": "Sticky Separar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        384,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "content": "📂 **OBTENER VACANTE**\nFetch del registro completo de la vacante en la tabla **Jobs** usando el linked record ID.",
+        "height": 130,
+        "width": 220,
+        "color": 7
+      },
+      "id": "sticky-vacante",
+      "name": "Sticky Vacante",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        576,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "content": "🔀 **¿VACANTE ACTIVA?**\n✅ `Status = Open` → analizar CV\n❌ `Status ≠ Open` → email de vacante cerrada",
+        "height": 130,
+        "width": 220,
+        "color": 4
+      },
+      "id": "sticky-if",
+      "name": "Sticky IF",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        592,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "content": "⬇️ **DESCARGAR CV**\nDescarga el PDF del CV desde la URL del adjunto en Airtable. `continueOnFail` activo.",
+        "height": 120,
+        "width": 220,
+        "color": 6
+      },
+      "id": "sticky-cv-dl",
+      "name": "Sticky DL CV",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        848,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "content": "📄 **EXTRAER TEXTO CV**\nExtrae el contenido de texto del PDF para enviarlo al análisis de IA.",
+        "height": 120,
+        "width": 220,
+        "color": 6
+      },
+      "id": "sticky-extraer",
+      "name": "Sticky Extraer",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "✍️ **ARMAR PROMPT**\nCombina datos del candidato + criterios de la vacante y construye el prompt para Claude.",
+        "height": 130,
+        "width": 220,
+        "color": 6
+      },
+      "id": "sticky-prompt",
+      "name": "Sticky Prompt",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "🧠 **CLAUDE API**\nEnvía el prompt a `claude-opus-4-5` y recibe el análisis del perfil en JSON. Reintenta 3 veces.",
+        "height": 130,
+        "width": 220,
+        "color": 6
+      },
+      "id": "sticky-claude",
+      "name": "Sticky Claude",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1552,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "🔄 **PARSEAR RESPUESTA**\nExtrae y valida el JSON devuelto por Claude con el score, status y detalles del análisis.",
+        "height": 130,
+        "width": 220,
+        "color": 6
+      },
+      "id": "sticky-parsear",
+      "name": "Sticky Parsear",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1728,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "💬 **ARMAR MENSAJE SLACK**\nFormatea el análisis con emojis, score, skills match y link directo al registro en Airtable.",
+        "height": 130,
+        "width": 220,
+        "color": 6
+      },
+      "id": "sticky-msg",
+      "name": "Sticky Msg",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1952,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "📨 **ENVIAR A SLACK**\nPublica el análisis en el canal del recruiter definido en el campo `Slack_Channel` de la vacante.",
+        "height": 130,
+        "width": 220,
+        "color": 6
+      },
+      "id": "sticky-slack",
+      "name": "Sticky Slack",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2176,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "✅ **MARCAR PROCESADO**\nPATCH a la API de Airtable para setear `Procesado = true` y evitar reprocesar el registro.",
+        "height": 130,
+        "width": 220,
+        "color": 6
+      },
+      "id": "sticky-marcar",
+      "name": "Sticky Marcar",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "📧 **ARMAR EMAIL**\nCrea un email HTML notificando al candidato que la vacante no está activa actualmente.",
+        "height": 120,
+        "width": 220,
+        "color": 3
+      },
+      "id": "sticky-email-prep",
+      "name": "Sticky Email Prep",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        896,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "content": "📤 **ENVIAR EMAIL**\nEnvía el email al candidato vía Gmail OAuth con el aviso de vacante cerrada.",
+        "height": 120,
+        "width": 220,
+        "color": 3
+      },
+      "id": "sticky-email-send",
+      "name": "Sticky Email Send",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1136,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "content": "✅ **MARCAR PROCESADO**\nTambién marca `Procesado = true` para postulaciones a vacantes cerradas.",
+        "height": 120,
+        "width": 220,
+        "color": 3
+      },
+      "id": "sticky-marcar-inac",
+      "name": "Sticky Marcar Inac",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1376,
+        672
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Disparador Cada Minuto": {
+      "main": [
+        [
+          {
+            "node": "Leer Postulaciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Postulaciones": {
+      "main": [
+        [
+          {
+            "node": "Nueva Postulacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vacante Activa?": {
+      "main": [
+        [
+          {
+            "node": "Descargar CV",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar Email Vacante Cerrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar CV": {
+      "main": [
+        [
+          {
+            "node": "Extraer Texto CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Texto CV": {
+      "main": [
+        [
+          {
+            "node": "Preparar Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Prompt": {
+      "main": [
+        [
+          {
+            "node": "Claude API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API": {
+      "main": [
+        [
+          {
+            "node": "Parsear Respuesta Claude",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear Respuesta Claude": {
+      "main": [
+        [
+          {
+            "node": "Preparar Mensaje Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Mensaje Slack": {
+      "main": [
+        [
+          {
+            "node": "Enviar Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Slack": {
+      "main": [
+        [
+          {
+            "node": "Marcar Como Procesado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Email Vacante Cerrada": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email Vacante Cerrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email Vacante Cerrada": {
+      "main": [
+        [
+          {
+            "node": "Marcar Procesado - Inactiva",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nueva Postulacion": {
+      "main": [
+        [
+          {
+            "node": "Separar Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separar Jobs": {
+      "main": [
+        [
+          {
+            "node": "Obtener Vacante",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Vacante": {
+      "main": [
+        [
+          {
+            "node": "Vacante Activa?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "bHNIT6UdVhsnfhPb"
+  },
+  "versionId": "5c7cbb10-2480-42bb-9d7a-be2f1b173880",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "ac6c863eb6947b45ac34fcf852611d08b59135337d282249edb01ef1bdba07a7"
+  },
+  "id": "ET3oSBICVGBF6Uyv",
+  "tags": []
+}
