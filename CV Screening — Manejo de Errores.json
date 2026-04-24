@@ -1,0 +1,159 @@
+{
+  "name": "CV Screening — Manejo de Errores",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const exec = $json.execution || {};\nconst error = exec.error || {};\nconst workflow = $json.workflow || {};\n\nconst nodo = error.node?.name || exec.lastNodeExecuted || 'Desconocido';\nconst mensaje = error.message || 'Sin detalle';\nconst url = exec.url || '';\nconst wfName = workflow.name || 'CV Screening';\n\nconst text = [\n  '🚨 *ERROR EN CV SCREENING — ACCIÓN REQUERIDA*',\n  '',\n  `*Workflow:* ${wfName}`,\n  `*Nodo que falló:* ${nodo}`,\n  `*Error:* ${mensaje}`,\n  '',\n  url ? `<${url}|🔍 Ver ejecución en n8n>` : '⚠️ No se pudo obtener el link a la ejecución'\n].join('\\n');\n\nreturn [{ json: { text } }];"
+      },
+      "id": "node-format-error",
+      "name": "Formatear Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "ats-errores"
+        },
+        "text": "={{ $json.text }}",
+        "otherOptions": {}
+      },
+      "id": "node-slack-error",
+      "name": "Slack Error",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        288,
+        304
+      ],
+      "webhookId": "3819c42c-b649-4dce-a167-c80337621742",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "IFnx0pVP7uI4cg6F",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 🚨 CV Screening — Manejo de Errores\n\nWorkflow secundario que se activa automáticamente cuando **cualquier nodo del workflow principal falla**.\nCaptura el error, lo formatea y alerta al equipo en el canal `#ats-errores` de Slack.\n\n> Configurado como `errorWorkflow` en los settings del workflow principal.",
+        "height": 150,
+        "width": 740,
+        "color": 3
+      },
+      "id": "sticky-err-header",
+      "name": "Header Errores",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "content": "🚨 **ERROR TRIGGER**\nSe dispara automáticamente cuando el workflow principal lanza un error en cualquier nodo.\n\nRecibe: `execution`, `workflow` y datos del error.",
+        "height": 140,
+        "width": 220,
+        "color": 3
+      },
+      "id": "sticky-err-trigger",
+      "name": "Sticky Error Trigger",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "📝 **FORMATEAR ERROR**\nExtrae del contexto:\n- Nombre del nodo que falló\n- Mensaje de error\n- Nombre del workflow\n- Link a la ejecución en n8n",
+        "height": 150,
+        "width": 220,
+        "color": 3
+      },
+      "id": "sticky-err-format",
+      "name": "Sticky Formatear",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        32,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "📣 **ALERTA EN SLACK**\nEnvía el mensaje de error al canal `#ats-errores` con el detalle del fallo y link para investigar la ejecución.",
+        "height": 140,
+        "width": 220,
+        "color": 3
+      },
+      "id": "sticky-err-slack",
+      "name": "Sticky Slack Error",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        272,
+        160
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Formatear Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatear Error": {
+      "main": [
+        [
+          {
+            "node": "Slack Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "402d0686-b053-476f-9c41-2a1e83d4e268",
+  "meta": {
+    "instanceId": "ac6c863eb6947b45ac34fcf852611d08b59135337d282249edb01ef1bdba07a7"
+  },
+  "id": "bHNIT6UdVhsnfhPb",
+  "tags": []
+}
