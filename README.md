@@ -1,6 +1,17 @@
 # 🤖 Automated CV Screening Workflow
 
+![n8n](https://img.shields.io/badge/n8n-workflow-orange?logo=n8n&logoColor=white)
+![Claude](https://img.shields.io/badge/Claude-Sonnet_4.5-8B5CF6?logo=anthropic&logoColor=white)
+![Airtable](https://img.shields.io/badge/Airtable-database-18BFFF?logo=airtable&logoColor=white)
+![Slack](https://img.shields.io/badge/Slack-notifications-4A154B?logo=slack&logoColor=white)
+![Gmail](https://img.shields.io/badge/Gmail-email-EA4335?logo=gmail&logoColor=white)
+![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-red)
+
 Pipeline de screening de CVs construido en **n8n** que procesa postulaciones desde Airtable, analiza el CV con **Claude (Anthropic)**, notifica al recruiter por **Slack** y marca el registro como procesado automáticamente.
+
+> 👤 **Creado por [Ana Ferreira](https://www.linkedin.com/in/anaferreirabezerra)** — HR Operations Analyst · People Analytics · HR Automation Specialist · 📩 [ani.fb95@gmail.com](mailto:ani.fb95@gmail.com) · [WhatsApp](https://wa.me/5491135077374)
+
+
 
 ---
 
@@ -21,13 +32,12 @@ Trigger → Leer → Filtrar → Separar Jobs → Validar Vacante
 
 <img width="1568" height="696" alt="image" src="https://github.com/user-attachments/assets/7afccb2d-e7e5-4672-926f-3fb4901f8013" />
 
-
 ---
 
 ## ⚙️ Nodos del Workflow
 
 | Nodo | Tipo | Descripción |
-|---|---|---|
+|------|------|-------------|
 | **Disparador Cada Minuto** | Schedule Trigger | Dispara el workflow automáticamente cada 1 minuto |
 | **Leer Postulaciones** | Airtable – Search Records | Trae todos los registros de la tabla `Applicants` con `Procesado = false` |
 | **Nueva Postulacion** | IF / Filter | Si todas están procesadas, detiene el workflow |
@@ -53,7 +63,7 @@ Trigger → Leer → Filtrar → Separar Jobs → Validar Vacante
 ### Tabla: `Jobs`
 
 | Campo | Tipo | Descripción |
-|---|---|---|
+|-------|------|-------------|
 | `Job_ID` | Single line text | Identificador único (ej: JOB001) |
 | `Job` | Single line text | Nombre del puesto |
 | `Department` | Single select | Engineering, Data, Design, Product |
@@ -71,7 +81,7 @@ Trigger → Leer → Filtrar → Separar Jobs → Validar Vacante
 ### Tabla: `Applicants`
 
 | Campo | Tipo | Descripción |
-|---|---|---|
+|-------|------|-------------|
 | `Applicant_ID` | Single line text | Identificador único |
 | `Full_Name` | Single line text | Nombre completo |
 | `Email` | Email | Email del candidato |
@@ -94,7 +104,7 @@ Trigger → Leer → Filtrar → Separar Jobs → Validar Vacante
 ## 🔑 Credenciales requeridas
 
 | Servicio | Tipo | Dónde configurar en n8n |
-|---|---|---|
+|----------|------|--------------------------|
 | **Airtable** | Personal Access Token (PAT) | n8n → Credentials → Airtable |
 | **Anthropic (Claude)** | API Key | n8n → Credentials → Header Auth (`x-api-key`) |
 | **Slack** | Bot Token (`xoxb-...`) | n8n → Credentials → Slack |
@@ -156,10 +166,8 @@ Se configura en los settings del workflow principal como `errorWorkflow`.
 
 <img width="1459" height="812" alt="image" src="https://github.com/user-attachments/assets/181d8869-3edd-4408-b8ee-e8bf48a91745" />
 
-
-
 | Nodo | Tipo | Descripción |
-|---|---|---|
+|------|------|-------------|
 | **Error Trigger** | Error Trigger | Se dispara automáticamente cuando el workflow principal lanza un error en cualquier nodo. Recibe `execution`, `workflow` y contexto del fallo |
 | **Formatear Error** | Code / Set | Extrae del contexto: nombre del nodo que falló, mensaje de error, nombre del workflow y link a la ejecución en n8n |
 | **Slack Error** | Slack – Post Message | Envía el mensaje de error al canal `#ats-errores` con el detalle del fallo y link para investigar la ejecución |
@@ -175,8 +183,8 @@ En los settings del workflow principal (⚙️ → Settings → Error Workflow),
 ```
 cv-screening-n8n/
 ├── README.md
-├── workflow.json                  
-├── workflow-error.json           
+├── workflow.json
+└── workflow-error.json
 ```
 
 ---
@@ -192,8 +200,28 @@ cv-screening-n8n/
 
 ## 🛠️ Stack
 
-- [n8n](https://n8n.io) — automatización del workflow
-- [Airtable](https://airtable.com) — base de datos de jobs y candidatos
-- [Anthropic Claude](https://console.anthropic.com) — análisis de CVs con IA
-- [Slack](https://slack.com) — notificaciones al recruiter
-- [Gmail](https://mail.google.com) — emails a candidatos
+| Herramienta | Rol |
+|-------------|-----|
+| [n8n](https://n8n.io) | Automatización del workflow |
+| [Anthropic Claude](https://console.anthropic.com) | Análisis de CVs con IA |
+| [Airtable](https://airtable.com) | Base de datos de jobs y candidatos |
+| [Slack](https://slack.com) | Notificaciones al recruiter |
+| [Gmail](https://mail.google.com) | Emails a candidatos |
+
+---
+
+## 👤 Autor
+
+**Ana Ferreira**  
+HR Operations Analyst · People Analytics · HR Automation Specialist · BI & Data Analyst  
+SQL · Power BI · Looker Studio · n8n · Make · SAP SuccessFactors
+
+📩 **Contacto:** [ani.fb95@gmail.com](mailto:ani.fb95@gmail.com) · [LinkedIn](https://www.linkedin.com/in/anaferreirabezerra) · [WhatsApp](https://wa.me/5491135077374)
+
+---
+
+## ⚠️ Licencia
+
+© 2025 Ana Ferreira. Todos los derechos reservados.
+
+Este proyecto es de **uso personal y educativo**. Queda prohibida su reproducción, distribución o uso comercial sin autorización expresa de la autora.
